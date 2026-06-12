@@ -29,7 +29,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_ACCOUNT_CHANNEL_ID,
             DEFAULT_ACCOUNT_CHANNEL_ID,
         ),
-        authorization=entry.data.get(CONF_AUTHORIZATION),
     )
 
     coordinator = ShenzhenGasCoordinator(hass, api)

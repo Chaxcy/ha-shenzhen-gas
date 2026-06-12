@@ -1,0 +1,22 @@
+{
+  "title": "深圳燃气",
+  "config": {
+    "step": {
+      "user": {
+        "title": "添加深圳燃气",
+        "description": "请输入从深圳燃气微信小程序抓取到的账户信息。",
+        "data": {
+          "ccb_cust_no": "客户号",
+          "meter_no": "燃气表号",
+          "code_id": "CodeId"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "连接失败，请检查客户号、燃气表号或 CodeId"
+    },
+    "abort": {
+      "already_configured": "该燃气表已经添加过"
+    }
+  }
+}

@@ -32,10 +32,6 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ccb_cust_no=user_input[CONF_CCB_CUST_NO],
                 meter_no=user_input[CONF_METER_NO],
                 code_id=user_input[CONF_CODE_ID],
-                account_channel_id=user_input.get(
-                    CONF_ACCOUNT_CHANNEL_ID,
-                    DEFAULT_ACCOUNT_CHANNEL_ID,
-                ),
             )
 
             try:
@@ -58,10 +54,6 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_CCB_CUST_NO): str,
                 vol.Required(CONF_METER_NO): str,
                 vol.Required(CONF_CODE_ID): str,
-                vol.Optional(
-                    CONF_ACCOUNT_CHANNEL_ID,
-                    default=DEFAULT_ACCOUNT_CHANNEL_ID,
-                ): str,
             }
         )
 
