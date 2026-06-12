@@ -1,0 +1,12 @@
+{
+  "domain": "shenzhen_gas",
+  "name": "深圳燃气",
+  "codeowners": ["@Chaxcy"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/Chaxcy/ha-shenzhen-gas",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/Chaxcy/ha-shenzhen-gas/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
