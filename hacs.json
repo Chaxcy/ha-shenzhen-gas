@@ -1,0 +1,6 @@
+{
+  "name": "深圳燃气",
+  "render_readme": true,
+  "domains": ["sensor", "binary_sensor"],
+  "homeassistant": "2024.8.0"
+}
