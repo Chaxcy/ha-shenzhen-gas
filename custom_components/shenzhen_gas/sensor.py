@@ -306,7 +306,7 @@ SENSORS = [
     ShenzhenGasSensorDescription(
         key="battery",
         name="电池电量",
-        icon="mdi:battery",
+        device_class=SensorDeviceClass.BATTERY,
         native_unit_of_measurement=PERCENTAGE,
         value_fn=lambda c: _valve_status(c).get("batteryVoltage"),
     ),
