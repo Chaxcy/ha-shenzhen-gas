@@ -215,6 +215,22 @@ def _next_bill_date(coordinator):
     )
 
 
+def _battery_icon(value):
+    try:
+        percent = int(float(value))
+    except (TypeError, ValueError):
+        return "mdi:battery-unknown"
+
+    if percent <= 0:
+        return "mdi:battery-outline"
+
+    if percent >= 100:
+        return "mdi:battery"
+
+    level = max(10, min(90, (percent // 10) * 10))
+    return f"mdi:battery-{level}"
+
+
 SENSORS = [
     ShenzhenGasSensorDescription(
         key="meter_reading",
@@ -348,6 +364,13 @@ class ShenzhenGasSensor(CoordinatorEntity, SensorEntity):
             return None
 
         return value
+
+    @property
+    def icon(self):
+        if self.entity_description.key == "battery":
+            return _battery_icon(self.native_value)
+
+        return self.entity_description.icon
 
     @property
     def extra_state_attributes(self):
