@@ -243,6 +243,26 @@ class ShenzhenGasApi:
             },
         )
 
+    async def async_get_bill_data_info(self) -> dict:
+        """Get historical bill data."""
+        return await self._request(
+            "POST",
+            "/api/handle/gasBill/getUserBillDataInfo",
+            json={
+                "acct": self._ccb_cust_no,
+            },
+        )
+
+    async def async_get_bill_date(self) -> dict:
+        """Get homepage bill amount and gas consumption."""
+        return await self._request(
+            "GET",
+            "/api/newcis/homepage/getBillDate",
+            params={
+                "accountChannelId": self._account_channel_id,
+            },
+        )
+
     async def async_get_all(self) -> dict:
         """Get all Shenzhen Gas data."""
         day_data = await self.async_get_day_data()
@@ -254,8 +274,18 @@ class ShenzhenGasApi:
         except ShenzhenGasApiError:
             balance = {}
 
+        bill_data = {}
+        try:
+            bill_data = await self.async_get_bill_data_info()
+        except ShenzhenGasApiError:
+            try:
+                bill_data = await self.async_get_bill_date()
+            except ShenzhenGasApiError:
+                bill_data = {}
+
         return {
             "day_data": day_data,
             "valve_status": valve_status,
             "balance": balance,
+            "bill_data": bill_data,
         }

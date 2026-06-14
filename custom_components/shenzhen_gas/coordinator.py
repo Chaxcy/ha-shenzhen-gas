@@ -56,3 +56,7 @@ class ShenzhenGasCoordinator(DataUpdateCoordinator):
     @property
     def valve_status(self) -> dict:
         return self.data.get("valve_status", {}) if self.data else {}
+
+    @property
+    def bill_data(self) -> dict:
+        return self.data.get("bill_data", {}) if self.data else {}

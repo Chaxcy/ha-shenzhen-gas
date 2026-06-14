@@ -14,6 +14,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 
+
 @dataclass(frozen=True, kw_only=True)
 class ShenzhenGasSensorDescription(SensorEntityDescription):
     value_fn: Callable
@@ -21,6 +22,7 @@ class ShenzhenGasSensorDescription(SensorEntityDescription):
 
 def _latest_day(coordinator):
     return coordinator.latest_day or {}
+
 
 def _yesterday_day(coordinator):
     datas = (
@@ -36,12 +38,166 @@ def _yesterday_day(coordinator):
 
     return datas[-2]
 
+
 def _internet_things(coordinator):
     return coordinator.internet_things or {}
 
 
 def _valve_status(coordinator):
     return coordinator.valve_status or {}
+
+
+def _bill_data(coordinator):
+    return coordinator.bill_data or {}
+
+
+def _last_bill(coordinator):
+    bill_list = _bill_data(coordinator).get("billList", [])
+
+    if not bill_list:
+        return {}
+
+    return bill_list[0]
+
+
+def _last_bill_params(coordinator):
+    data_params = _last_bill(coordinator).get("dataParams", {})
+
+    if isinstance(data_params, dict):
+        return data_params
+
+    return {}
+
+
+def _last_bill_charge_detail(coordinator):
+    mx_list = _last_bill_params(coordinator).get("mxList")
+
+    if isinstance(mx_list, dict):
+        return mx_list.get("billDescr")
+
+    if isinstance(mx_list, list):
+        for item in mx_list:
+            if isinstance(item, dict) and item.get("billDescr"):
+                return item.get("billDescr")
+
+    return None
+
+
+def _iter_dicts(value):
+    if isinstance(value, dict):
+        yield value
+        for nested in value.values():
+            yield from _iter_dicts(nested)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _iter_dicts(item)
+
+
+def _first_value(coordinator, keys):
+    """Return the first non-empty value matching any key in coordinator data."""
+    if not coordinator.data:
+        return None
+
+    data_sources = [
+        coordinator.data.get("bill_data", {}),
+        coordinator.data.get("balance", {}),
+        coordinator.internet_things,
+    ]
+
+    normalized_keys = {key.lower() for key in keys}
+
+    for source in data_sources:
+        for item in _iter_dicts(source):
+            for key, value in item.items():
+                if str(key).lower() in normalized_keys and value not in (None, ""):
+                    return value
+
+    return None
+
+
+def _last_bill_amount(coordinator):
+    return (
+        _last_bill(coordinator).get("calcAmt")
+        or _last_bill_params(coordinator).get("calcAmt")
+        or _last_bill_params(coordinator).get("remainAmt")
+        or _bill_data(coordinator).get("arreasAmt")
+        or _first_value(
+            coordinator,
+            (
+                "lastBillAmount",
+                "lastBillAmt",
+                "lastMonthAmount",
+                "lastMonthBillAmount",
+                "lastPeriodAmount",
+                "lastPeriodBillAmount",
+                "lastCycleAmount",
+                "lastCycleBillAmount",
+                "lastFee",
+                "lastBillFee",
+                "lastPayAmount",
+                "lastGasFee",
+                "lastAmount",
+                "previousBillAmount",
+                "previousFee",
+                "previousAmount",
+                "preBillAmount",
+                "preBillFee",
+                "preGasFee",
+                "preAmount",
+                "billAmount",
+                "arreasAmt",
+                "应缴金额",
+                "账单金额",
+                "上期账单金额",
+            ),
+        )
+    )
+
+
+def _last_bill_usage(coordinator):
+    return (
+        _last_bill(coordinator).get("msrQty")
+        or _last_bill_params(coordinator).get("bqyql")
+        or _bill_data(coordinator).get("gasConsumption")
+        or _first_value(
+            coordinator,
+            (
+                "lastBillUsage",
+                "lastBillGas",
+                "lastMonthGas",
+                "lastMonthUsage",
+                "lastMonthUseGas",
+                "lastPeriodGas",
+                "lastPeriodUsage",
+                "lastPeriodUseGas",
+                "lastCycleGas",
+                "lastCycleUsage",
+                "lastCycleUseGas",
+                "lastGasQuantity",
+                "lastDosage",
+                "lastGas",
+                "lastUsage",
+                "lastUseGas",
+                "previousBillUsage",
+                "previousGas",
+                "previousGasQuantity",
+                "previousDosage",
+                "previousUsage",
+                "previousUseGas",
+                "preBillUsage",
+                "preGas",
+                "preGasQuantity",
+                "preDosage",
+                "preUsage",
+                "preUseGas",
+                "gasConsumption",
+                "gasUsage",
+                "useGas",
+                "用气量",
+                "上期用气量",
+            ),
+        )
+    )
 
 
 SENSORS = [
@@ -75,6 +231,23 @@ SENSORS = [
         name="余额",
         native_unit_of_measurement="CNY",
         value_fn=lambda c: _internet_things(c).get("residualAmount"),
+    ),
+    ShenzhenGasSensorDescription(
+        key="last_bill_amount",
+        name="上期账单金额",
+        native_unit_of_measurement="CNY",
+        value_fn=_last_bill_amount,
+    ),
+    ShenzhenGasSensorDescription(
+        key="last_bill_usage",
+        name="上期用气量",
+        native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
+        value_fn=_last_bill_usage,
+    ),
+    ShenzhenGasSensorDescription(
+        key="last_bill_charge_detail",
+        name="第一阶梯气费",
+        value_fn=_last_bill_charge_detail,
     ),
     ShenzhenGasSensorDescription(
         key="raw_reading",
