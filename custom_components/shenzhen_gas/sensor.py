@@ -200,6 +200,21 @@ def _last_bill_usage(coordinator):
     )
 
 
+def _last_bill_period(coordinator):
+    return (
+        _last_bill(coordinator).get("bsegPeriod")
+        or _last_bill_params(coordinator).get("bsegPeriod")
+    )
+
+
+def _next_bill_date(coordinator):
+    return (
+        _last_bill(coordinator).get("wyjDt")
+        or _last_bill_params(coordinator).get("wyjDt")
+        or _bill_data(coordinator).get("dayEndDate")
+    )
+
+
 SENSORS = [
     ShenzhenGasSensorDescription(
         key="meter_reading",
@@ -212,52 +227,73 @@ SENSORS = [
     ShenzhenGasSensorDescription(
         key="daily_usage",
         name="今日用气量",
+        icon="mdi:gas-burner",
         native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
         value_fn=lambda c: _latest_day(c).get("readingSum"),
     ),
     ShenzhenGasSensorDescription(
         key="yesterday_usage",
         name="昨日用气量",
+        icon="mdi:gas-burner",
         native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
         value_fn=lambda c: _yesterday_day(c).get("readingSum"),
     ),
     ShenzhenGasSensorDescription(
         key="latest_reading_date",
         name="用气日期",
+        icon="mdi:calendar-today",
         value_fn=lambda c: _latest_day(c).get("readingDate"),
     ),
     ShenzhenGasSensorDescription(
         key="balance",
         name="余额",
+        icon="mdi:cash",
         native_unit_of_measurement="CNY",
         value_fn=lambda c: _internet_things(c).get("residualAmount"),
     ),
     ShenzhenGasSensorDescription(
         key="last_bill_amount",
         name="上期账单金额",
+        icon="mdi:cash",
         native_unit_of_measurement="CNY",
         value_fn=_last_bill_amount,
     ),
     ShenzhenGasSensorDescription(
         key="last_bill_usage",
         name="上期用气量",
+        icon="mdi:gas-burner",
         native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
         value_fn=_last_bill_usage,
     ),
     ShenzhenGasSensorDescription(
         key="last_bill_charge_detail",
         name="第一阶梯气费",
+        icon="mdi:cash",
         value_fn=_last_bill_charge_detail,
+    ),
+    ShenzhenGasSensorDescription(
+        key="last_bill_period",
+        name="上期账单周期",
+        icon="mdi:receipt-text-check",
+        value_fn=_last_bill_period,
+    ),
+    ShenzhenGasSensorDescription(
+        key="next_bill_date",
+        name="下一账单日",
+        icon="mdi:receipt-text-clock",
+        value_fn=_next_bill_date,
     ),
     ShenzhenGasSensorDescription(
         key="raw_reading",
         name="最新读数",
+        icon="mdi:meter-gas",
         native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
         value_fn=lambda c: _internet_things(c).get("rawReading"),
     ),
     ShenzhenGasSensorDescription(
         key="receive_time",
         name="最近更新",
+        icon="mdi:calendar-today",
         value_fn=lambda c: _internet_things(c).get("receiveTime"),
     ),
     ShenzhenGasSensorDescription(
@@ -268,6 +304,7 @@ SENSORS = [
     ShenzhenGasSensorDescription(
         key="battery",
         name="电池电量",
+        icon="mdi:battery",
         native_unit_of_measurement=PERCENTAGE,
         value_fn=lambda c: _valve_status(c).get("batteryVoltage"),
     ),
