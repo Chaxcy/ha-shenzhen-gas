@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Callable
 
 from homeassistant.const import UnitOfVolume, PERCENTAGE
@@ -73,14 +74,36 @@ def _last_bill_charge_detail(coordinator):
     mx_list = _last_bill_params(coordinator).get("mxList")
 
     if isinstance(mx_list, dict):
-        return mx_list.get("billDescr")
+        return _last_number(mx_list.get("billDescr")) or _last_number(
+            mx_list.get("amt")
+        )
 
     if isinstance(mx_list, list):
         for item in mx_list:
-            if isinstance(item, dict) and item.get("billDescr"):
-                return item.get("billDescr")
+            if not isinstance(item, dict):
+                continue
+
+            value = _last_number(item.get("billDescr")) or _last_number(
+                item.get("amt")
+            )
+            if value is not None:
+                return value
 
     return None
+
+
+def _last_number(value):
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, (int, float)):
+        return value
+
+    matches = re.findall(r"-?\d+(?:\.\d+)?", str(value))
+    if not matches:
+        return None
+
+    return float(matches[-1])
 
 
 def _iter_dicts(value):
@@ -285,8 +308,10 @@ SENSORS = [
     ),
     ShenzhenGasSensorDescription(
         key="last_bill_charge_detail",
-        name="第一阶梯气费",
+        name="阶梯气费",
         icon="mdi:cash",
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="CNY/m³",
         value_fn=_last_bill_charge_detail,
     ),
     ShenzhenGasSensorDescription(
