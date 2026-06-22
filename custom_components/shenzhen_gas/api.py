@@ -245,6 +245,13 @@ class ShenzhenGasApi:
 
         return [record for record in records if isinstance(record, dict)]
 
+    async def async_get_account_info(self) -> dict:
+        """Get house/account details for the current customer."""
+        return await self._request(
+            "GET",
+            f"/api/handle/fraccounthouseinfo/queryAccountInfo/{self._ccb_cust_no}",
+        )
+
     async def async_get_valve_status(self) -> dict:
         """Get gas meter valve status."""
         return await self._request(
@@ -290,6 +297,16 @@ class ShenzhenGasApi:
 
     async def async_get_all(self) -> dict:
         """Get all Shenzhen Gas data."""
+        account_info = {}
+        try:
+            account_info = await self.async_get_account_info()
+        except ShenzhenGasApiError:
+            account_info = {}
+
+        meter_no = next(_iter_meter_values(account_info), None)
+        if meter_no and meter_no != self._meter_no:
+            self.update_meter_no(meter_no)
+
         balance = {}
         try:
             balance = await self.async_get_balance()
@@ -322,6 +339,7 @@ class ShenzhenGasApi:
                 bill_data = {}
 
         return {
+            "account_info": account_info,
             "day_data": day_data,
             "valve_status": valve_status,
             "balance": balance,
@@ -329,33 +347,37 @@ class ShenzhenGasApi:
         }
 
 
-METER_KEYS = {
-    "deviceno",
-    "deviceid",
-    "gasmeterid",
-    "gasmeterno",
-    "meterid",
-    "meter_id",
+METER_KEYS = (
+    "mph",
     "meterno",
     "meter_no",
+    "mtrno",
+    "mtr_no",
+    "gasmeterno",
+    "rawmeterno",
+    "deviceno",
     "meternum",
     "meternumber",
     "metersn",
-    "mph",
-    "mtrno",
-    "mtr_no",
-    "rawmeterno",
     "rmid",
-}
+    "deviceno",
+    "deviceid",
+    "gasmeterid",
+    "meterid",
+    "meter_id",
+)
 
 
 def _iter_meter_values(value) -> Iterable[str]:
     """Yield likely meter numbers from nested API data."""
     if isinstance(value, dict):
-        for key, item in value.items():
-            if str(key).lower() in METER_KEYS and item not in (None, ""):
+        normalized = {str(key).lower(): item for key, item in value.items()}
+        for key in METER_KEYS:
+            item = normalized.get(key)
+            if item not in (None, ""):
                 yield str(item)
 
+        for item in value.values():
             yield from _iter_meter_values(item)
 
     elif isinstance(value, list):

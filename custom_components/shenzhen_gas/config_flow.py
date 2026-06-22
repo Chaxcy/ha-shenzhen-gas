@@ -171,12 +171,18 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             account_channel_id=self._account_channel_id,
         )
 
+        candidates = []
         try:
-            data = await api.async_get_balance()
+            candidates.extend(_iter_meter_values(await api.async_get_account_info()))
         except ShenzhenGasApiError:
-            return []
+            pass
 
-        return list(_iter_meter_values(data))
+        try:
+            candidates.extend(_iter_meter_values(await api.async_get_balance()))
+        except ShenzhenGasApiError:
+            pass
+
+        return candidates
 
     @staticmethod
     def _account_label(account: dict) -> str:
@@ -190,33 +196,37 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return " / ".join(str(part) for part in parts if part) or "未命名账户"
 
 
-METER_KEYS = {
-    "deviceno",
-    "deviceid",
-    "gasmeterid",
-    "gasmeterno",
-    "meterid",
-    "meter_id",
+METER_KEYS = (
+    "mph",
     "meterno",
     "meter_no",
+    "mtrno",
+    "mtr_no",
+    "gasmeterno",
+    "rawmeterno",
+    "deviceno",
     "meternum",
     "meternumber",
     "metersn",
-    "mph",
-    "mtrno",
-    "mtr_no",
-    "rawmeterno",
     "rmid",
-}
+    "deviceno",
+    "deviceid",
+    "gasmeterid",
+    "meterid",
+    "meter_id",
+)
 
 
 def _iter_meter_values(value) -> Iterable[str]:
     """Yield likely meter numbers from nested API data."""
     if isinstance(value, dict):
-        for key, item in value.items():
-            if str(key).lower() in METER_KEYS and item not in (None, ""):
+        normalized = {str(key).lower(): item for key, item in value.items()}
+        for key in METER_KEYS:
+            item = normalized.get(key)
+            if item not in (None, ""):
                 yield str(item)
 
+        for item in value.values():
             yield from _iter_meter_values(item)
 
     elif isinstance(value, list):
