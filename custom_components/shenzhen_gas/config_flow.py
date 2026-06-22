@@ -24,6 +24,7 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialize the config flow."""
         self._accounts: list[dict] = []
+        self._selected_account: dict | None = None
         self._code_id: str | None = None
         self._account_channel_id: str = DEFAULT_ACCOUNT_CHANNEL_ID
 
@@ -40,18 +41,14 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 if len(self._accounts) == 1:
-                    try:
-                        return await self._async_create_entry_from_account(
-                            self._accounts[0]
-                        )
-                    except ShenzhenGasApiError:
-                        errors["base"] = "cannot_connect"
+                    self._selected_account = self._accounts[0]
+                    return await self._async_auto_create_or_ask_meter()
 
                 elif self._accounts:
                     return await self.async_step_account()
 
                 else:
-                    errors["base"] = "cannot_connect"
+                    errors["base"] = "no_accounts"
 
         schema = vol.Schema(
             {
@@ -71,9 +68,9 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
-                account = self._accounts[int(user_input["account"])]
-                return await self._async_create_entry_from_account(account)
-            except (IndexError, ValueError, ShenzhenGasApiError):
+                self._selected_account = self._accounts[int(user_input["account"])]
+                return await self._async_auto_create_or_ask_meter()
+            except (IndexError, ValueError):
                 errors["base"] = "cannot_connect"
 
         account_options = {
@@ -84,6 +81,26 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="account",
             data_schema=vol.Schema({vol.Required("account"): vol.In(account_options)}),
+            errors=errors,
+        )
+
+    async def async_step_meter(self, user_input=None):
+        """Handle manual meter number fallback."""
+        errors = {}
+
+        if user_input is not None:
+            try:
+                return await self._async_create_entry_from_account(
+                    self._selected_account or {},
+                    user_input[CONF_METER_NO],
+                    validate=True,
+                )
+            except ShenzhenGasApiError:
+                errors["base"] = "cannot_connect"
+
+        return self.async_show_form(
+            step_id="meter",
+            data_schema=vol.Schema({vol.Required(CONF_METER_NO): str}),
             errors=errors,
         )
 
@@ -100,13 +117,37 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return await api.async_get_bound_accounts()
 
-    async def _async_create_entry_from_account(self, account: dict):
+    async def _async_auto_create_or_ask_meter(self):
+        """Create entry automatically or ask for meter number."""
+        try:
+            ccb_cust_no = (self._selected_account or {}).get("ccbCustNo")
+            meter_no = await self._async_find_working_meter_no(
+                self._selected_account or {},
+                ccb_cust_no,
+            )
+        except ShenzhenGasApiError:
+            return await self.async_step_meter()
+
+        return await self._async_create_entry_from_account(
+            self._selected_account or {},
+            meter_no,
+            validate=False,
+        )
+
+    async def _async_create_entry_from_account(
+        self,
+        account: dict,
+        meter_no: str,
+        *,
+        validate: bool,
+    ):
         """Create a config entry from a bound account."""
         ccb_cust_no = account.get("ccbCustNo")
         if not ccb_cust_no:
             raise ShenzhenGasApiError("Bound account has no ccbCustNo")
 
-        meter_no = await self._async_find_working_meter_no(account, ccb_cust_no)
+        if validate:
+            await self._async_validate_meter_no(ccb_cust_no, meter_no)
 
         await self.async_set_unique_id(f"{ccb_cust_no}_{meter_no}")
         self._abort_if_unique_id_configured()
@@ -124,32 +165,39 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _async_find_working_meter_no(
         self,
         account: dict,
-        ccb_cust_no: str,
+        ccb_cust_no: str | None,
     ) -> str:
         """Find the bound account field accepted by the meter data API."""
+        if not ccb_cust_no:
+            raise ShenzhenGasApiError("Bound account has no ccbCustNo")
+
         candidates = [
             account.get("premId"),
             account.get("extAcctId"),
             account.get("ccbCustNo"),
         ]
 
-        session = async_get_clientsession(self.hass)
         for candidate in dict.fromkeys(value for value in candidates if value):
-            api = ShenzhenGasApi(
-                session,
-                ccb_cust_no=ccb_cust_no,
-                meter_no=str(candidate),
-                code_id=self._code_id or "",
-                account_channel_id=self._account_channel_id,
-            )
             try:
-                await api.async_get_day_data()
+                await self._async_validate_meter_no(ccb_cust_no, str(candidate))
             except ShenzhenGasApiError:
                 continue
 
             return str(candidate)
 
         raise ShenzhenGasApiError("No working meter number found")
+
+    async def _async_validate_meter_no(self, ccb_cust_no: str, meter_no: str) -> None:
+        """Validate customer and meter number against daily meter data API."""
+        session = async_get_clientsession(self.hass)
+        api = ShenzhenGasApi(
+            session,
+            ccb_cust_no=ccb_cust_no,
+            meter_no=meter_no,
+            code_id=self._code_id or "",
+            account_channel_id=self._account_channel_id,
+        )
+        await api.async_get_day_data()
 
     @staticmethod
     def _account_label(account: dict) -> str:
