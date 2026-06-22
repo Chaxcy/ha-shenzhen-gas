@@ -285,8 +285,17 @@ class ShenzhenGasApi:
 
     async def async_get_all(self) -> dict:
         """Get all Shenzhen Gas data."""
-        day_data = await self.async_get_day_data()
-        valve_status = await self.async_get_valve_status()
+        day_data = {}
+        try:
+            day_data = await self.async_get_day_data()
+        except ShenzhenGasApiError:
+            day_data = {}
+
+        valve_status = {}
+        try:
+            valve_status = await self.async_get_valve_status()
+        except ShenzhenGasApiError:
+            valve_status = {}
 
         balance = {}
         try:

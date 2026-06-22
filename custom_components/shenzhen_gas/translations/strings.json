@@ -16,17 +16,10 @@
         "data": {
           "account": "账户"
         }
-      },
-      "meter": {
-        "title": "填写燃气表号",
-        "description": "已识别到绑定账户，但未能自动确认燃气表号。请填写该账户对应的燃气表号。",
-        "data": {
-          "meter_no": "燃气表号"
-        }
       }
     },
     "error": {
-      "cannot_connect": "连接失败，请检查 CodeId 或燃气表号",
+      "cannot_connect": "连接失败，请检查 CodeId 是否完整，或微信小程序中是否已经绑定深圳燃气账户",
       "no_accounts": "未读取到绑定账户，请确认微信小程序中已经绑定深圳燃气账户"
     },
     "abort": {
