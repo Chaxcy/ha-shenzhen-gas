@@ -34,6 +34,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = ShenzhenGasCoordinator(hass, api)
     await coordinator.async_config_entry_first_refresh()
 
+    if api.meter_no != entry.data[CONF_METER_NO]:
+        hass.config_entries.async_update_entry(
+            entry,
+            title=f"深圳燃气 {api.meter_no}",
+            data={
+                **entry.data,
+                CONF_METER_NO: api.meter_no,
+            },
+        )
+
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 

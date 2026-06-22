@@ -43,7 +43,10 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 if len(self._accounts) == 1:
                     self._selected_account = self._accounts[0]
-                    return await self._async_create_entry_from_selected_account()
+                    try:
+                        return await self._async_create_entry_from_selected_account()
+                    except ShenzhenGasApiError:
+                        errors["base"] = "cannot_connect"
 
                 elif self._accounts:
                     return await self.async_step_account()
@@ -71,7 +74,7 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 self._selected_account = self._accounts[int(user_input["account"])]
                 return await self._async_create_entry_from_selected_account()
-            except (IndexError, ValueError):
+            except (IndexError, ValueError, ShenzhenGasApiError):
                 errors["base"] = "cannot_connect"
 
         account_options = {
@@ -148,7 +151,6 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             [
                 account.get("premId"),
                 account.get("extAcctId"),
-                account.get("ccbCustNo"),
             ]
         )
 
@@ -156,7 +158,7 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if candidate:
             return str(candidate)
 
-        return str(ccb_cust_no)
+        raise ShenzhenGasApiError("No meter number candidate found")
 
     async def _async_get_meter_candidates(self, ccb_cust_no: str) -> list[str]:
         """Return possible meter numbers from customer-level IoT meter data."""

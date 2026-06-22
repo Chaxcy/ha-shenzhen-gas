@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime, timedelta
 
 import aiohttp
@@ -41,6 +42,10 @@ class ShenzhenGasApi:
     def meter_no(self) -> str:
         """Return gas meter number."""
         return self._meter_no
+
+    def update_meter_no(self, meter_no: str) -> None:
+        """Update gas meter number."""
+        self._meter_no = meter_no
 
     @property
     def ccb_cust_no(self) -> str:
@@ -285,6 +290,16 @@ class ShenzhenGasApi:
 
     async def async_get_all(self) -> dict:
         """Get all Shenzhen Gas data."""
+        balance = {}
+        try:
+            balance = await self.async_get_balance()
+        except ShenzhenGasApiError:
+            balance = {}
+
+        meter_no = next(_iter_meter_values(balance), None)
+        if meter_no and meter_no != self._meter_no:
+            self.update_meter_no(meter_no)
+
         day_data = {}
         try:
             day_data = await self.async_get_day_data()
@@ -296,12 +311,6 @@ class ShenzhenGasApi:
             valve_status = await self.async_get_valve_status()
         except ShenzhenGasApiError:
             valve_status = {}
-
-        balance = {}
-        try:
-            balance = await self.async_get_balance()
-        except ShenzhenGasApiError:
-            balance = {}
 
         bill_data = {}
         try:
@@ -318,3 +327,37 @@ class ShenzhenGasApi:
             "balance": balance,
             "bill_data": bill_data,
         }
+
+
+METER_KEYS = {
+    "deviceno",
+    "deviceid",
+    "gasmeterid",
+    "gasmeterno",
+    "meterid",
+    "meter_id",
+    "meterno",
+    "meter_no",
+    "meternum",
+    "meternumber",
+    "metersn",
+    "mph",
+    "mtrno",
+    "mtr_no",
+    "rawmeterno",
+    "rmid",
+}
+
+
+def _iter_meter_values(value) -> Iterable[str]:
+    """Yield likely meter numbers from nested API data."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if str(key).lower() in METER_KEYS and item not in (None, ""):
+                yield str(item)
+
+            yield from _iter_meter_values(item)
+
+    elif isinstance(value, list):
+        for item in value:
+            yield from _iter_meter_values(item)
