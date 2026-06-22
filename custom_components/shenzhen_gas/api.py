@@ -220,6 +220,26 @@ class ShenzhenGasApi:
             },
         )
 
+    async def async_get_bound_accounts(self) -> list[dict]:
+        """Get accounts bound to the current mini-program user."""
+        data = await self._request(
+            "POST",
+            "/api/newcis/frbindingport/receiveBandingAcctIdList",
+            json={
+                "accountChannelId": self._account_channel_id,
+                "pageNum": 1,
+                "pageSize": 100,
+                "areaId": "",
+                "type": "",
+            },
+        )
+
+        records = data.get("records", [])
+        if not isinstance(records, list):
+            return []
+
+        return [record for record in records if isinstance(record, dict)]
+
     async def async_get_valve_status(self) -> dict:
         """Get gas meter valve status."""
         return await self._request(

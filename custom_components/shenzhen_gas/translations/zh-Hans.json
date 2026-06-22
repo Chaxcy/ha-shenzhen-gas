@@ -4,11 +4,17 @@
     "step": {
       "user": {
         "title": "添加深圳燃气",
-        "description": "请输入从深圳燃气微信小程序抓取到的账户信息。",
+        "description": "请输入从深圳燃气微信小程序请求头里抓取到的 CodeId。",
         "data": {
           "ccb_cust_no": "客户号",
           "meter_no": "燃气表号",
           "code_id": "CodeId"
+        }
+      },
+      "account": {
+        "title": "选择深圳燃气账户",
+        "data": {
+          "account": "账户"
         }
       }
     },
