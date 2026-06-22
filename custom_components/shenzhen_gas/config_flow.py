@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -176,6 +177,7 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             account.get("extAcctId"),
             account.get("ccbCustNo"),
         ]
+        candidates.extend(await self._async_get_meter_candidates(ccb_cust_no))
 
         for candidate in dict.fromkeys(value for value in candidates if value):
             try:
@@ -186,6 +188,24 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return str(candidate)
 
         raise ShenzhenGasApiError("No working meter number found")
+
+    async def _async_get_meter_candidates(self, ccb_cust_no: str) -> list[str]:
+        """Return possible meter numbers from customer-level IoT meter data."""
+        session = async_get_clientsession(self.hass)
+        api = ShenzhenGasApi(
+            session,
+            ccb_cust_no=ccb_cust_no,
+            meter_no="",
+            code_id=self._code_id or "",
+            account_channel_id=self._account_channel_id,
+        )
+
+        try:
+            data = await api.async_get_balance()
+        except ShenzhenGasApiError:
+            return []
+
+        return list(_iter_meter_values(data))
 
     async def _async_validate_meter_no(self, ccb_cust_no: str, meter_no: str) -> None:
         """Validate customer and meter number against daily meter data API."""
@@ -209,3 +229,37 @@ class ShenzhenGasConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         ]
 
         return " / ".join(str(part) for part in parts if part) or "未命名账户"
+
+
+METER_KEYS = {
+    "deviceno",
+    "deviceid",
+    "gasmeterid",
+    "gasmeterno",
+    "meterid",
+    "meter_id",
+    "meterno",
+    "meter_no",
+    "meternum",
+    "meternumber",
+    "metersn",
+    "mph",
+    "mtrno",
+    "mtr_no",
+    "rawmeterno",
+    "rmid",
+}
+
+
+def _iter_meter_values(value) -> Iterable[str]:
+    """Yield likely meter numbers from nested API data."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if str(key).lower() in METER_KEYS and item not in (None, ""):
+                yield str(item)
+
+            yield from _iter_meter_values(item)
+
+    elif isinstance(value, list):
+        for item in value:
+            yield from _iter_meter_values(item)
